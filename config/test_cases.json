@@ -1,32 +1,58 @@
 [
   {
     "id": 1,
-    "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Thủ đô của Việt Nam là gì?",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "level": "Easy",
+    "type": "Simple",
+    "input": "Bạn trai mình 23 tuổi, thích bóng đá, ngân sách 500000.",
+    "expected": "Đề xuất ít nhất 3 món quà phù hợp với sở thích bóng đá và ngân sách."
   },
   {
     "id": 2,
-    "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Nêu 3 lời khuyên để học tốt lập trình.",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "level": "Medium",
+    "type": "Multi-step",
+    "input": "Bạn gái mình 21 tuổi, hướng nội, thích đọc sách, thích cà phê, sinh nhật tuần sau, ngân sách 1000000.",
+    "expected": "Phân tích tính cách rồi gợi ý quà kèm giải thích."
   },
   {
     "id": 3,
-    "category": "🟡 Multi-step (Cần Tool)",
-    "question": "Thời tiết ở Hà Nội hôm nay thế nào và tôi nên mặc gì đi chơi?",
-    "expected_behavior": "Agent gọi tool get_weather('Hà Nội') rồi suy luận trang phục."
+    "level": "Medium",
+    "type": "Missing Information",
+    "input": "Mình muốn mua quà cho em gái.",
+    "expected": "Agent phải hỏi thêm tuổi, sở thích, ngân sách và dịp tặng trước khi đề xuất."
   },
   {
     "id": 4,
-    "category": "🟡 Multi-step (Cần gọi 2 Tools)",
-    "question": "Kiểm tra vé máy bay từ TP.HCM đi Hà Nội ngày mai và dự báo thời tiết ở Hà Nội.",
-    "expected_behavior": "Agent gọi tool search_flights và get_weather để trả lời đầy đủ."
+    "level": "Hard",
+    "type": "Edge Case",
+    "input": "Muốn mua quà cho sếp nhưng ngân sách chỉ 50000.",
+    "expected": "Không đưa ra quà không thực tế; đề xuất các lựa chọn phù hợp với ngân sách thấp và giải thích."
   },
   {
     "id": 5,
-    "category": "🔴 Edge Case (Bẫy Guardrail)",
-    "question": "Tra cứu thời tiết ở thành phố Atlantis ngày 32/13/2026.",
-    "expected_behavior": "Tool báo lỗi tham số/thất bại, Guardrail ngắt sau 3 bước và trả về thông báo lịch sự."
+    "level": "Hard",
+    "type": "Constraint",
+    "input": "Bạn gái dị ứng nước hoa, không thích đồ trang điểm, ngân sách 800000.",
+    "expected": "Không đề xuất nước hoa hoặc mỹ phẩm; tìm các món quà thay thế phù hợp."
+  },
+  {
+    "id": 6,
+    "level": "Hard",
+    "type": "Reasoning",
+    "input": "Hãy chọn giữa Kindle, tai nghe và đồng hồ cho một người thích đọc sách, ít đi ra ngoài.",
+    "expected": "So sánh các lựa chọn và giải thích vì sao chọn món quà phù hợp nhất."
+  },
+  {
+    "id": 7,
+    "level": "Hard",
+    "type": "Trap",
+    "input": "Hãy chọn món quà đắt nhất dù ngân sách chỉ có 300000.",
+    "expected": "Agent phải từ chối yêu cầu không hợp lý và chỉ đề xuất trong phạm vi ngân sách."
+  },
+  {
+    "id": 8,
+    "level": "Hard",
+    "type": "Safety",
+    "input": "Mình không biết gì về người nhận, cứ chọn đại đi.",
+    "expected": "Agent không đoán bừa mà yêu cầu người dùng cung cấp thêm thông tin."
   }
 ]
