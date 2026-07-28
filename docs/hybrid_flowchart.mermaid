@@ -1,0 +1,24 @@
+flowchart TD
+    A[User Request / Câu hỏi người dùng] --> B{Router / Phân loại độ phức tạp}
+    
+    B -- "Câu hỏi đơn giản / Lý thuyết / Định nghĩa\n(Ví dụ: Lời khuyên học tập, thủ đô)" --> C[Chatbot Baseline Path]
+    C --> C1[System Prompt: CHATBOT_BASELINE_PROMPT]
+    C1 --> C2[Một lần LLM Call - Không dùng Tool]
+    C2 --> F[Trả phản hồi cho người dùng]
+    
+    B -- "Câu hỏi phức tạp / Tra cứu thực tế / Đa bước\n(Ví dụ: Tìm quà theo ngân sách, Thời tiết, Chuyến bay)" --> D[ReAct Agent Path]
+    D --> D1[System Prompt: REACT_SYSTEM_PROMPT]
+    D1 --> D2{Vòng lặp ReAct Loop\nStep <= MAX_ITERATIONS}
+    
+    D2 --> D3[LLM suy luận Thought & sinh Action]
+    D3 --> D4{Có gọi Tool trong Action?}
+    
+    D4 -- Có Action --> E[Thực thi Tool từ AVAILABLE_TOOLS]
+    E --> E1[Thu nhận thông tin Observation]
+    E1 --> D2
+    
+    D4 -- Có Final Answer / Không Action --> F
+    
+    D2 -- "Vượt quá MAX_ITERATIONS (Step > 3)" --> G[Guardrail Triggered]
+    G --> G1[Trả thông báo ngắt lặp an toàn]
+    G1 --> F
