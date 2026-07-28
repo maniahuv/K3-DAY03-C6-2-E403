@@ -150,8 +150,50 @@ def generate_greeting_card(relationship: str, occasion: str, personality_style: 
 
 
 # Đăng ký danh sách các tool khả dụng cho ReAct Agent
+def get_weather(location: str) -> str:
+    """
+    Tra cứu thời tiết hiện tại của một thành phố.
+    
+    Args:
+        location (str): Tên thành phố (VD: 'Hà Nội', 'TP.HCM').
+        
+    Returns:
+        str: Thông tin thời tiết thực tế.
+    """
+    loc = location.strip().lower()
+    if "hà nội" in loc or "hanoi" in loc:
+        return "Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ, độ ẩm 65%."
+    elif "tp.hcm" in loc or "hồ chí minh" in loc or "hcm" in loc or "saigon" in loc:
+        return "Thời tiết TP.HCM hôm nay 32°C, có mưa rào rải rác vào chiều tối."
+    elif "đà nẵng" in loc or "da nang" in loc:
+        return "Thời tiết Đà Nẵng hôm nay 30°C, mây thay đổi, gió nhẹ."
+    else:
+        return f"Thời tiết tại {location} hôm nay 27°C, mây rải rác, nhiệt độ dễ chịu."
+
+
+def search_flights(origin: str, destination: str) -> str:
+    """
+    Tra cứu chuyến bay giữa 2 địa điểm.
+    
+    Args:
+        origin (str): Nơi đi (VD: 'TP.HCM').
+        destination (str): Nơi đến (VD: 'Hà Nội').
+        
+    Returns:
+        str: Danh sách chuyến bay tìm thấy.
+    """
+    return (
+        f"🛫 THÔNG TIN CHUYẾN BAY từ {origin} đi {destination}:\n"
+        f"1. Vietnam Airlines VN123 (08:00 - 10:00) - Giá: 1.500.000 VNĐ\n"
+        f"2. Vietjet Air VJ456 (14:30 - 16:30) - Giá: 1.200.000 VNĐ"
+    )
+
+
 AVAILABLE_TOOLS = {
+    "get_weather": get_weather,
+    "search_flights": search_flights,
     "analyze_personality": analyze_personality,
     "check_gift_stock_and_stores": check_gift_stock_and_stores,
     "generate_greeting_card": generate_greeting_card,
 }
+

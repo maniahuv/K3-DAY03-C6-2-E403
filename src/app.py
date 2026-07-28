@@ -48,6 +48,7 @@ def run_baseline_chatbot(user_query: str, provider):
     # Gọi LLM Provider thực hiện sinh câu trả lời
     response = provider.generate(user_query, system_prompt=CHATBOT_BASELINE_PROMPT)
     print(f"🤖 Chatbot trả lời:\n{response}")
+    return response
 
 
 def run_react_agent(user_query: str, provider):
@@ -78,6 +79,35 @@ def run_react_agent(user_query: str, provider):
         print(f"🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn tối đa {MAX_ITERATIONS} bước. Ngắt lặp an toàn!")
 
 
+def get_test_question(test: dict) -> str:
+    """Lấy nội dung câu hỏi/input hỗ trợ cả 2 định dạng schema ('question' hoặc 'input')"""
+    return test.get("question") or test.get("input") or ""
+
+
+def get_test_category(test: dict) -> str:
+    """Lấy danh mục/phân loại hỗ trợ cả 2 định dạng schema ('category' hoặc 'level'/'type')"""
+    if "category" in test:
+        return test["category"]
+    level = test.get("level", "")
+    t_type = test.get("type", "")
+    return f"{level} - {t_type}".strip(" -")
+
+
+def run_all_baseline_test_cases(tests, provider):
+    """
+    [Role 4 - Mốc 2] Chạy khảo sát Chatbot Baseline trên tất cả các Test Cases từ config/test_cases.json
+    """
+    print("\n==================================================")
+    print("📋 [MỐC 2 - ROLE 4] CHẠY CHATBOT BASELINE TRÊN BỘ TEST CASES")
+    print("==================================================")
+    for test in tests:
+        q = get_test_question(test)
+        cat = get_test_category(test)
+        print(f"\n--------------------------------------------------")
+        print(f"📌 Test Case #{test['id']} ({cat}): {q}")
+        run_baseline_chatbot(q, provider)
+
+
 if __name__ == "__main__":
     print("==================================================")
     print("🏫 ĐẠI HỌC VINUNI - BÀI LAB 3: CHATBOT VS REACT AGENT")
@@ -91,11 +121,16 @@ if __name__ == "__main__":
     tests = load_test_cases()
     print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
     
-    # Chạy thử câu test số 3
-    sample_query = tests[2]["question"]
+    # Chạy thử câu test số 3 (Demo Mốc 2 & Mốc 3)
+    sample_query = get_test_question(tests[2])
     
     print("--- DEMO 1: CHẠY TRÊN CHATBOT BASELINE ---")
     run_baseline_chatbot(sample_query, provider)
     
     print("\n--- DEMO 2: CHẠY TRÊN REACT AGENT ---")
     run_react_agent(sample_query, provider)
+
+    # [Role 4 - Mốc 2] Khảo sát phản hồi của Chatbot Baseline trên bộ Test Cases
+    run_all_baseline_test_cases(tests, provider)
+
+
