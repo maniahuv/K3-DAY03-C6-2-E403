@@ -1,157 +1,280 @@
-"""
-🛠️ TOOL REGISTRY & SCHEMAS (Dành cho Role 2: Tool & Spec Engineer)
-Nơi khai báo các công cụ (Tools) cho Agent "Trợ Lý Phân Tích Tính Cách & Chọn Quà Tặng".
-Sử dụng SerpAPI Google Shopping Light để tra cứu sản phẩm trực tiếp từ Google Shopping.
-"""
+"""Các tool bên ngoài dùng bởi gift recommendation agent."""
+
+from __future__ import annotations
 
 import os
-import requests
+import re
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def analyze_personality(behavior_description: str) -> str:
-    """
-    Phân tích mô tả tính cách, thói quen và sở thích người nhận quà.
-    Trích xuất gu quà tặng phù hợp và đề xuất từ khóa (query) để tìm sản phẩm trên Google Shopping.
-    
-    Args:
-        behavior_description (str): Mô tả về tính cách, thói quen, sở thích, tuổi tác, giới tính người nhận.
-        
-    Returns:
-        str: Phân tích chân dung tính cách, gu quà tặng và danh sách từ khóa tìm kiếm Google Shopping gợi ý.
-    """
-    desc = behavior_description.lower()
-    
-    if any(k in desc for k in ["công nghệ", "game", "lập trình", "máy tính", "laptop", "macbook", "gadget"]):
-        archetype = "TECH_MINIMALIST (Người yêu công nghệ & Tối giản)"
-        search_queries = ["macbook", "tai nghe bluetooth", "bàn phím cơ không dây", "sạc dự phòng magsafe"]
-        guidance = "Đồ công nghệ cao, thiết kế tối giản, ứng dụng thực tế."
-    elif any(k in desc for k in ["sách", "vẽ", "nghệ thuật", "mộng mơ", "lãng mạn", "nến"]):
-        archetype = "ARTISTIC_ROMANTIC (Tâm hồn nghệ sĩ & Lãng mạn)"
-        search_queries = ["nến thơm cao cấp", "máy chụp ảnh polaroid", "bộ màu vẽ watercolor", "sổ tay bìa da"]
-        guidance = "Giá trị tinh thần cao, thiết kế tinh tế, mang tính cá nhân hóa."
-    elif any(k in desc for k in ["thể thao", "gym", "phượt", "du lịch", "năng động", "chạy bộ"]):
-        archetype = "ACTIVE_EXPLORER (Người năng động & Thích trải nghiệm)"
-        search_queries = ["đồng hồ thông minh thể thao", "bình giữ nhiệt 1l", "balo dã ngoại"]
-        guidance = "Độ bền cao, phụ kiện thể thao, phục vụ hoạt động ngoài trời."
-    else:
-        archetype = "PRACTICAL_ELEGANT (Thực tế & Tinh tế)"
-        search_queries = ["máy massage cổ vai", "bút ký kim loại", "bộ ly sứ quà tặng"]
-        guidance = "Vật dụng thiết thực hàng ngày, chất lượng cao, tốt cho sức khỏe."
-        
-    return (
-        f"📊 PHÂN TÍCH CHÂN DUNG TÍNH CÁCH:\n"
-        f"- Nhóm tính cách: {archetype}\n"
-        f"- Định hướng chọn quà: {guidance}\n"
-        f"- Gợi ý từ khóa tìm kiếm Google Shopping: {', '.join(search_queries)}"
+class SearchToolError(RuntimeError):
+    """Lỗi có thể hiển thị khi search provider không hoạt động."""
+
+
+def _api_price(value: float) -> int | float:
+    """SerpAPI từ chối price có phần thập phân .0."""
+
+    return int(value) if float(value).is_integer() else value
+
+
+def _safe_serpapi_error(exc: Exception) -> str:
+    """Lấy message từ response nhưng không làm lộ API key trong URL."""
+
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            payload = response.json()
+            if isinstance(payload, dict) and payload.get("error"):
+                return str(payload["error"])
+        except (ValueError, TypeError):
+            pass
+        status_code = getattr(response, "status_code", None)
+        if status_code:
+            return f"HTTP {status_code}"
+    return exc.__class__.__name__
+
+
+def _to_number(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return None
+
+    text = value.lower().strip()
+    match = re.search(r"\d[\d.,\s]*", text)
+    if not match:
+        return None
+
+    digits = re.sub(r"[^\d]", "", match.group(0))
+    if not digits:
+        return None
+
+    number = float(digits)
+    if "triệu" in text or "trieu" in text:
+        number *= 1_000_000
+    elif re.search(r"\d\s*k\b", text):
+        number *= 1_000
+    return number
+
+
+def _normalize_result(raw: dict[str, Any], matched_query: str) -> dict[str, Any]:
+    price = _to_number(
+        raw.get("extracted_price")
+        or raw.get("price")
+        or raw.get("price_from")
     )
+    return {
+        "title": str(raw.get("title") or raw.get("name") or "").strip(),
+        "price": price,
+        "price_text": str(raw.get("price") or "").strip() or None,
+        "currency": "VND",
+        "url": raw.get("product_link") or raw.get("link") or raw.get("url"),
+        "source": raw.get("source") or raw.get("merchant") or raw.get("displayed_link"),
+        "thumbnail": raw.get("thumbnail"),
+        "rating": raw.get("rating"),
+        "matched_query": matched_query,
+    }
 
 
-def check_gift_stock_and_stores(query: str, min_price: int = None, max_price: int = None) -> str:
-    """
-    Tra cứu sản phẩm quà tặng trực tiếp từ Google Shopping thời gian thực qua SerpAPI (google_shopping_light).
-    Trả về danh sách sản phẩm: Tên, Giá, Cửa hàng/Nguồn bán, Đánh giá, Vận chuyển và Link sản phẩm.
-    
-    Args:
-        query (str): Từ khóa tìm kiếm sản phẩm quà tặng (VD: 'macbook', 'nến thơm cao cấp', 'tai nghe bluetooth').
-        min_price (int, optional): Mức giá tối thiểu.
-        max_price (int, optional): Mức giá tối đa.
-        
-    Returns:
-        str: Kết quả sản phẩm thực tế từ Google Shopping kèm thông tin shop và giá tiền.
-    """
-    api_key = os.getenv("Search_API") or os.getenv("SERPAPI_API_KEY")
+def search_products(
+    query: str,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    limit: int = 6,
+) -> list[dict[str, Any]]:
+    """Tìm sản phẩm bằng SerpAPI Google Shopping và lọc lại theo giá VND."""
+
+    api_key = os.getenv("Search_API") or os.getenv("SEARCH_API_KEY")
     if not api_key:
-        return "LỖI: Chưa cấu hình 'Search_API' hoặc 'SERPAPI_API_KEY' trong file .env."
-    
-    # Chuẩn bị tham số truy vấn SerpAPI Google Shopping Light
-    search_params = {
-        "engine": "google_shopping_light",
+        raise SearchToolError("Thiếu Search_API trong file .env")
+
+    params: dict[str, Any] = {
+        "engine": "google_shopping",
         "q": query,
-        "hl": "en",
-        "gl": "us"
+        "hl": "vi",
+        "gl": "vn",
+        "sort_by": 1,
     }
     if min_price is not None:
-        search_params["min_price"] = min_price
+        params["min_price"] = _api_price(min_price)
     if max_price is not None:
-        search_params["max_price"] = max_price
+        params["max_price"] = _api_price(max_price)
 
-    shopping_results = []
-    
-    # 1. Thử dùng SDK serpapi client chính thức
     try:
         import serpapi
+
         client = serpapi.Client(api_key=api_key)
-        results = client.search(search_params)
-        shopping_results = results.get("shopping_results", [])
-    except ImportError:
-        # 2. Fallback dùng requests gọi trực tiếp API SerpAPI nếu chưa cài package serpapi
-        endpoint_url = "https://serpapi.com/search?engine=google_shopping_light"
-        search_params["api_key"] = api_key
-        try:
-            resp = requests.get(endpoint_url, params=search_params, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                shopping_results = data.get("shopping_results", [])
-            else:
-                return f"LỖI gọi SerpAPI HTTP {resp.status_code}: {resp.text}"
-        except Exception as err:
-            return f"LỖI kết nối SerpAPI: {str(err)}"
-    except Exception as e:
-        return f"LỖI thực thi SerpAPI Search: {str(e)}"
+        payload = client.search(params)
+    except Exception as exc:
+        detail = _safe_serpapi_error(exc)
+        raise SearchToolError(f"SerpAPI trả về lỗi: {detail}") from exc
 
-    if not shopping_results:
-        return f"Không tìm thấy sản phẩm nào trên Google Shopping cho từ khóa '{query}'."
+    if payload.get("error"):
+        message = str(payload["error"])
+        if "hasn't returned any results" in message.lower():
+            return []
+        raise SearchToolError(message)
 
-    # Extract và format kết quả shopping_results
-    output = [f"🛍️ KẾT QUẢ GOOGLE SHOPPING CHO TỪ KHÓA '{query}':"]
-    for idx, item in enumerate(shopping_results[:5], 1):
-        title = item.get("title", "N/A")
-        price = item.get("price", "N/A")
-        source = item.get("source", "N/A")
-        rating = item.get("rating", "N/A")
-        reviews = item.get("reviews", "")
-        delivery = item.get("delivery", "")
-        product_link = item.get("product_link", "N/A")
-        
-        info = f"{idx}. {title}\n   - Giá: {price}\n   - Nguồn/Cửa hàng: {source}"
-        if rating != "N/A":
-            info += f"\n   - Đánh giá: {rating}⭐ ({reviews} nhận xét)"
-        if delivery:
-            info += f"\n   - Vận chuyển: {delivery}"
-        if product_link != "N/A":
-            info += f"\n   - Link: {product_link}"
-            
-        output.append(info)
-
-    return "\n\n".join(output)
-
-
-def generate_greeting_card(relationship: str, occasion: str, personality_style: str) -> str:
-    """
-    Tạo câu chúc thiệp cá nhân hóa phù hợp với tính cách người nhận và dịp tặng.
-    
-    Args:
-        relationship (str): Mối quan hệ với người nhận (VD: 'Bạn thân', 'Người yêu', 'Đồng nghiệp').
-        occasion (str): Dịp tặng quà (VD: 'Sinh nhật', 'Kỷ niệm', 'Tốt nghiệp').
-        personality_style (str): Phong cách lời chúc (VD: 'Tối giản', 'Lãng mạn', 'Hài hước', 'Trang trọng').
-        
-    Returns:
-        str: Mẫu lời chúc viết thiệp hoàn chỉnh.
-    """
-    return (
-        f"📝 [MẪU THIỆP GỢI Ý - Phong cách: {personality_style}]\n"
-        f"Gửi: {relationship} | Dịp: {occasion}\n"
-        f"\"Chúc {relationship} một ngày {occasion} thật ý nghĩa và trọn vẹn! "
-        f"Hy vọng món quà này sẽ mang lại thêm nhiều niềm vui và đồng hành cùng bạn trong những hành trình sắp tới. ✨\""
+    raw_results = (
+        payload.get("shopping_results")
+        or payload.get("items")
+        or payload.get("organic_results")
+        or []
     )
+
+    results: list[dict[str, Any]] = []
+    for raw in raw_results:
+        item = _normalize_result(raw, query)
+        if not item["title"] or not item["url"]:
+            continue
+
+        price = item["price"]
+        # Khi có budget, bỏ kết quả không có giá vì không thể xác minh.
+        if (min_price is not None or max_price is not None) and price is None:
+            continue
+        if min_price is not None and price is not None and price < min_price:
+            continue
+        if max_price is not None and price is not None and price > max_price:
+            continue
+
+        results.append(item)
+        if len(results) >= limit:
+            break
+    return results
+
+
+def search_gifts(
+    queries: list[str],
+    min_price: float | None = None,
+    max_price: float | None = None,
+    limit_per_query: int = 6,
+    trace: Callable[..., None] | None = None,
+) -> dict[str, Any]:
+    """Chạy nhiều query, gom kết quả và loại URL trùng nhau."""
+
+    items: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    seen_urls: set[str] = set()
+
+    def run_one(query: str) -> tuple[str, list[dict[str, Any]], str | None]:
+        if trace:
+            trace(
+                "search_query_started",
+                data={
+                    "query": query,
+                    "min_price": min_price,
+                    "max_price": max_price,
+                },
+            )
+        try:
+            found = search_products(query, min_price, max_price, limit_per_query)
+        except SearchToolError as exc:
+            if trace:
+                trace(
+                    "search_query_completed",
+                    status="error",
+                    data={"query": query, "error": str(exc)},
+                )
+            return query, [], f"Lỗi khi tìm '{query}': {exc}"
+        
+        if trace:
+            trace(
+                "search_query_completed",
+                status="warning" if not found else "ok",
+                data={"query": query, "result_count": len(found), "results": found},
+            )
+
+        warning = None
+        if not found:
+            warning = f"Không tìm thấy sản phẩm nào cho từ khóa '{query}'"
+        return query, found, warning
+
+    if trace:
+        trace(
+            "search_batch_started",
+            data={
+                "query_count": len(queries),
+                "queries": queries,
+                "min_price": min_price,
+                "max_price": max_price,
+            },
+        )
+    
+    with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
+        futures = [executor.submit(run_one, q) for q in queries]
+        for future in futures:
+            query, found, warning = future.result()
+            if warning:
+                warnings.append(warning)
+            for item in found:
+                url = item["url"]
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                items.append(item)
+
+    output = {"items": items, "warnings": warnings}
+    if trace:
+        trace(
+            "search_batch_completed",
+            status="warning" if warnings else "ok",
+            data={
+                "result_count": len(items),
+                "warning_count": len(warnings),
+                "results": items,
+                "warnings": warnings,
+            },
+        )
+    return output
 
 
 # Đăng ký danh sách các tool khả dụng cho ReAct Agent
+def get_weather(location: str) -> str:
+    """
+    Tra cứu thời tiết hiện tại của một thành phố.
+    
+    Args:
+        location (str): Tên thành phố (VD: 'Hà Nội', 'TP.HCM').
+        
+    Returns:
+        str: Thông tin thời tiết thực tế.
+    """
+    loc = location.strip().lower()
+    if "hà nội" in loc or "hanoi" in loc:
+        return "Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ, độ ẩm 65%."
+    elif "tp.hcm" in loc or "hồ chí minh" in loc or "hcm" in loc or "saigon" in loc:
+        return "Thời tiết TP.HCM hôm nay 32°C, có mưa rào rải rác vào chiều tối."
+    elif "đà nẵng" in loc or "da nang" in loc:
+        return "Thời tiết Đà Nẵng hôm nay 30°C, mây thay đổi, gió nhẹ."
+    else:
+        return f"Thời tiết tại {location} hôm nay 27°C, mây rải rác, nhiệt độ dễ chịu."
+
+
+def search_flights(origin: str, destination: str) -> str:
+    """
+    Tra cứu chuyến bay giữa 2 địa điểm.
+    
+    Args:
+        origin (str): Nơi đi (VD: 'TP.HCM').
+        destination (str): Nơi đến (VD: 'Hà Nội').
+        
+    Returns:
+        str: Danh sách chuyến bay tìm thấy.
+    """
+    return (
+        f"🛫 THÔNG TIN CHUYẾN BAY từ {origin} đi {destination}:\n"
+        f"1. Vietnam Airlines VN123 (08:00 - 10:00) - Giá: 1.500.000 VNĐ\n"
+        f"2. Vietjet Air VJ456 (14:30 - 16:30) - Giá: 1.200.000 VNĐ"
+    )
+
+
 AVAILABLE_TOOLS = {
-    "analyze_personality": analyze_personality,
-    "check_gift_stock_and_stores": check_gift_stock_and_stores,
-    "generate_greeting_card": generate_greeting_card,
+    "search_gifts": search_gifts,
+    "get_weather": get_weather,
+    "search_flights": search_flights,
 }

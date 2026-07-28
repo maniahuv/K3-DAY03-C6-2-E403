@@ -15,18 +15,18 @@
 
 ---
 
-## 🔍 2. SO SÁNH PHẢN HỒI (TEST CASE #3)
+## 🔍 2. SO SÁNH PHẢN HỒI
 
-**Câu hỏi**: *"Thời tiết ở Hà Nội hôm nay thế nào và tôi nên mặc gì đi chơi?"*
+**Câu hỏi (Test Case #4)**: *"Muốn mua quà cho sếp nhưng ngân sách chỉ 50000."*
 
 ### 🤖 Chatbot Baseline:
-* **Phản hồi**: *"Tôi không có truy cập Internet thời gian thực nên không biết thời tiết hôm nay ở Hà Nội."*
-* **Nhận xét**: An toàn nhưng không giải quyết được nhu cầu thực tế của người dùng.
+* **Phản hồi**: Chatbot gợi ý mua "Bút bi cao cấp", "Sổ tay", "Khung ảnh mini", "Bao lì xì tinh tế", "Cây xanh mini"...
+* **Nhận xét**: **Bị ảo giác (Hallucination) về giá trị thực tế**. Với 50.000 VNĐ, không thể mua được "bút bi cao cấp" hay "sổ tay sang trọng" ngoài đời thực. Chatbot chỉ đoán bừa dựa trên từ khóa "quà cho sếp" mà không có cơ sở dữ liệu kho hàng thật để kiểm tra xem với 50.000 VNĐ thì mua được món cụ thể nào.
 
-### 🧠 ReAct Agent:
-* **Thought 1**: Cần tra cứu thời tiết Hà Nội.
-* **Action 1**: `get_weather['Hà Nội']`
-* **Observation 1**: `Thời tiết Hà Nội: 28°C, Nắng nhẹ, Độ ẩm 65%.`
-* **Thought 2**: Đã có thông tin 28°C nắng nhẹ, đưa ra lời khuyên trang phục.
-* **Final Answer**: *"Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ. Bạn nên mặc quần áo thoáng mát!"*
-* **Nhận xét**: Hoàn thành xuất sắc nhiệm vụ nhờ sự kết hợp giữa suy luận và công cụ.
+### 🧠 ReAct Agent (Dự kiến ở Mốc 3):
+* **Thought 1**: Cần tra cứu xem có món quà nào phù hợp cho sếp ("thực tế", "sổ da", "bút ký") với giá dưới 50.000 VNĐ hay không.
+* **Action 1**: `search_gifts['bút ký sổ da', 50000]`
+* **Observation 1**: `LỖI: Không tìm thấy món quà nào khớp...`
+* **Thought 2**: Không có quà nào phù hợp trong kho với ngân sách này.
+* **Final Answer**: *"Xin lỗi bạn, hiện tại trong kho không có món quà nào phù hợp cho sếp (bút ký, sổ da) với mức giá dưới 50.000 VNĐ. Bạn có thể cân nhắc tăng ngân sách hoặc tự làm một món quà thủ công nhỏ nhé!"*
+* **Nhận xét**: Trả lời chính xác dựa trên tình trạng tồn kho thực tế, không bịaa ra quà tặng không có thật.
