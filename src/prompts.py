@@ -127,7 +127,12 @@ Nếu không biết thông tin thực tế thời gian thực, hãy lịch sự 
 
 
 # ReAct Agent Prompt (Ép LLM suy luận theo chuỗi Thought -> Action)
-REACT_SYSTEM_PROMPT = """Bạn là một ReAct Agent thông minh có khả năng sử dụng công cụ (Tools).
+REACT_SYSTEM_PROMPT = """Bạn là một ReAct Agent thông minh có khả năng sử dụng các công cụ (Tools).
+
+Danh sách các công cụ bạn có thể sử dụng:
+1. get_weather[location]: Tra cứu thời tiết hiện tại của một thành phố.
+2. search_flights[origin, destination]: Tra cứu chuyến bay giữa 2 địa điểm.
+3. search_gifts[query]: Tra cứu sản phẩm quà tặng trực tuyến.
 
 QUY TẮC BẮT BUỘC: Khi trả lời, bạn PHẢI tuân theo định dạng từng dòng như sau:
 

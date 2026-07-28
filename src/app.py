@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from typing import Any
 
@@ -22,7 +23,7 @@ from prompts import (  # noqa: E402
     MAX_ITERATIONS,
 )
 from providers import OpenAIProvider, get_llm_provider  # noqa: E402
-from tools import search_gifts, get_weather, search_flights  # noqa: E402
+from tools import AVAILABLE_TOOLS, search_gifts, get_weather, search_flights  # noqa: E402
 from tracing import TraceLogger  # noqa: E402
 
 load_dotenv()
@@ -228,32 +229,84 @@ def run_baseline_chatbot(user_query: str, provider):
     return response
 
 
+def parse_react_action(llm_output: str):
+    """
+    Trích xuất tên tool và tham số từ chuỗi 'Action: tool_name[arg]' hoặc 'Action: tool_name[arg1, arg2]'
+    """
+    pattern = r"Action:\s*([a_zA_Z0_9_]+)\s*[\[\(](.*?)[\]\)]"
+    match = re.search(pattern, llm_output, re.DOTALL | re.IGNORECASE)
+    if not match:
+        return None, None
+    
+    tool_name = match.group(1).strip()
+    raw_args = match.group(2).strip()
+    
+    args = []
+    if raw_args:
+        parts = raw_args.split(",")
+        for part in parts:
+            clean_part = part.strip().strip("'\"")
+            if clean_part:
+                args.append(clean_part)
+                
+    return tool_name, args
+
+
+def execute_tool(tool_name: str, args: list):
+    """Thực thi tool an toàn từ AVAILABLE_TOOLS"""
+    if tool_name not in AVAILABLE_TOOLS:
+        return f"LỖI: Công cụ '{tool_name}' không tồn tại trong danh sách AVAILABLE_TOOLS."
+    
+    func = AVAILABLE_TOOLS[tool_name]
+    try:
+        if not args:
+            return str(func())
+        elif len(args) == 1:
+            return str(func(args[0]))
+        else:
+            return str(func(*args))
+    except Exception as e:
+        return f"LỖI THỰC THI TOOL '{tool_name}': {str(e)}"
+
+
 def run_react_agent(user_query: str, provider):
     """
-    Dựng vòng lặp ReAct Agent (Thought -> Action -> Observation) có Guardrails.
+    [Role 4 - Mốc 3] Dựng vòng lặp ReAct Agent (Thought -> Action -> Observation) hoàn chỉnh có Guardrails (MAX_ITERATIONS).
     """
     print(f"\n🤖 [REACT AGENT] Câu hỏi: {user_query}")
     step = 0
+    conversation_history = f"Câu hỏi của người dùng: {user_query}\n"
     
     while step < MAX_ITERATIONS:
         step += 1
         print(f"\n--- 🔄 Vòng lặp ReAct (Step {step}/{MAX_ITERATIONS}) ---")
         
-        if step == 1:
-            print("🧠 Thought: Câu hỏi này cần tra cứu thời tiết thời gian thực.")
-            print("🛠️ Action: get_weather['Hà Nội']")
+        # 1. Gọi LLM sinh suy luận (Thought) & hành động (Action)
+        response = provider.generate(conversation_history, system_prompt=REACT_SYSTEM_PROMPT)
+        print(f"🤖 Agent Output:\n{response}")
+        
+        # 2. Kiểm tra câu trả lời cuối cùng (Final Answer)
+        if "Final Answer:" in response:
+            final_ans = response.split("Final Answer:")[-1].strip()
+            print(f"\n🏁 FINAL ANSWER:\n{final_ans}")
+            return response
             
-            # Thực thi tool
-            obs = get_weather("Hà Nội")
+        # 3. Phân tích Action để thực thi Tool
+        tool_name, args = parse_react_action(response)
+        if tool_name:
+            print(f"🛠️ Action parsed: {tool_name}{args}")
+            obs = execute_tool(tool_name, args)
             print(f"👁️ Observation: {obs}")
             
-        elif step == 2:
-            print("🧠 Thought: Tôi đã có thông tin thời tiết Hà Nội, giờ tôi có thể tư vấn trang phục.")
-            print("🏁 Final Answer: Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ. Bạn nên mặc áo phông thoáng mát!")
-            break
-            
+            # Cập nhật context cho bước tiếp theo
+            conversation_history += f"\n{response}\nObservation: {obs}\n"
+        else:
+            # Nếu không tìm thấy Action và cũng không có Final Answer
+            print(f"\n🏁 FINAL ANSWER (Kết thúc suy luận):\n{response}")
+            return response
+
     if step >= MAX_ITERATIONS:
-        print(f"🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn tối đa {MAX_ITERATIONS} bước. Ngắt lặp an toàn!")
+        print(f"\n🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn tối đa {MAX_ITERATIONS} bước. Ngắt lặp an toàn!")
 
 
 def main() -> int:
