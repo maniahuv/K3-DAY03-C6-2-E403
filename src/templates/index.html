@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Chatbot AI tìm quà phù hợp theo sở thích, dịp tặng và ngân sách."
+    />
+    <title>Gifty — Trợ lý chọn quà AI</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Gifty home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path d="M5 13h22v15H5z" />
+              <path d="M3 9h26v6H3z" />
+              <path d="M16 9v19M8 9c-2.8-2.7-.9-6 1.8-5.7C13.2 3.7 16 9 16 9M24 9c2.8-2.7.9-6-1.8-5.7C18.8 3.7 16 9 16 9" />
+            </svg>
+          </span>
+          <span>Gifty</span>
+        </a>
+
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span>AI đang sẵn sàng</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="hero-copy" aria-labelledby="page-title">
+          <p class="eyebrow">Trợ lý chọn quà thông minh</p>
+          <h1 id="page-title">
+            Món quà đúng ý,<br />
+            <span>không cần đoán mò.</span>
+          </h1>
+          <p class="hero-description">
+            Kể mình nghe về người bạn muốn tặng. Gifty sẽ tìm, so sánh và chọn
+            những món phù hợp nhất trong ngân sách.
+          </p>
+
+          <div class="trust-row">
+            <div class="trust-item">
+              <span class="trust-icon">⌁</span>
+              <span>Tìm sản phẩm thật</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">₫</span>
+              <span>Lọc đúng ngân sách</span>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon">✦</span>
+              <span>Gợi ý có lý do</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="chat-card" aria-label="Chat với Gifty">
+          <div class="chat-header">
+            <div>
+              <span class="chat-kicker">Cuộc trò chuyện mới</span>
+              <h2>Hôm nay bạn muốn tặng quà cho ai?</h2>
+            </div>
+            <button
+              id="clear-chat"
+              class="icon-button"
+              type="button"
+              title="Bắt đầu lại"
+              aria-label="Bắt đầu cuộc trò chuyện mới"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 4v6h6M20 20v-6h-6" />
+                <path d="M5.1 15A8 8 0 0 0 18.2 18M18.9 9A8 8 0 0 0 5.8 6" />
+              </svg>
+            </button>
+          </div>
+
+          <div id="messages" class="messages" aria-live="polite">
+            <article class="message assistant-message">
+              <div class="assistant-avatar" aria-hidden="true">G</div>
+              <div class="message-content">
+                <p>
+                  Chào bạn! Hãy mô tả người nhận, dịp tặng, sở thích và khoảng
+                  giá nếu có. Mình sẽ lo phần còn lại.
+                </p>
+              </div>
+            </article>
+
+            <div id="suggestions" class="suggestions">
+              <button type="button" class="suggestion-chip">
+                Quà sinh nhật cho bạn nữ thích đọc sách, dưới 500K
+              </button>
+              <button type="button" class="suggestion-chip">
+                Quà công nghệ cho bạn trai, từ 300K đến 1 triệu
+              </button>
+              <button type="button" class="suggestion-chip">
+                Quà tặng mẹ nhân ngày sinh nhật
+              </button>
+            </div>
+          </div>
+
+          <form id="chat-form" class="composer">
+            <label class="sr-only" for="message-input">Mô tả món quà</label>
+            <textarea
+              id="message-input"
+              rows="1"
+              maxlength="2000"
+              placeholder="Ví dụ: Quà sinh nhật cho bạn nữ thích đọc sách, khoảng 300–500K..."
+              required
+            ></textarea>
+            <button id="send-button" class="send-button" type="submit">
+              <span>Gửi</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m5 12 14-7-4 14-3-6-7-1Z" />
+                <path d="m12 13 7-8" />
+              </svg>
+            </button>
+          </form>
+          <p class="composer-hint">
+            Enter để gửi · Shift + Enter để xuống dòng
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <aside id="trace-drawer" class="trace-drawer" aria-hidden="true">
+      <div class="trace-backdrop" data-close-trace></div>
+      <div class="trace-panel">
+        <div class="trace-header">
+          <div>
+            <p class="eyebrow">Agent observability</p>
+            <h2>Trace từng bước</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close-trace
+            aria-label="Đóng trace"
+          >
+            <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <div id="trace-content" class="trace-content"></div>
+      </div>
+    </aside>
+
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  </body>
+</html>
