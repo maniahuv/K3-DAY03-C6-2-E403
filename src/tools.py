@@ -180,19 +180,17 @@ def search_gifts(
                     status="error",
                     data={"query": query, "error": str(exc)},
                 )
-            return query, [], f"Lỗi khi tìm '{query}': {exc}"
-        
+            return query, [], str(exc)
         if trace:
             trace(
                 "search_query_completed",
-                status="warning" if not found else "ok",
-                data={"query": query, "result_count": len(found), "results": found},
+                data={
+                    "query": query,
+                    "result_count": len(found),
+                    "results": found,
+                },
             )
-
-        warning = None
-        if not found:
-            warning = f"Không tìm thấy sản phẩm nào cho từ khóa '{query}'"
-        return query, found, warning
+        return query, found, None
 
     if trace:
         trace(
@@ -204,19 +202,21 @@ def search_gifts(
                 "max_price": max_price,
             },
         )
-    
-    with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
-        futures = [executor.submit(run_one, q) for q in queries]
-        for future in futures:
-            query, found, warning = future.result()
-            if warning:
-                warnings.append(warning)
-            for item in found:
-                url = item["url"]
-                if url in seen_urls:
-                    continue
-                seen_urls.add(url)
-                items.append(item)
+    worker_count = max(1, min(len(queries), 5))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        query_results = executor.map(run_one, queries)
+
+    # executor.map giữ nguyên thứ tự query để output có tính ổn định.
+    for query, found, error in query_results:
+        if error:
+            warnings.append(f"{query}: {error}")
+            continue
+        for item in found:
+            url = str(item["url"])
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            items.append(item)
 
     output = {"items": items, "warnings": warnings}
     if trace:
@@ -233,48 +233,4 @@ def search_gifts(
     return output
 
 
-# Đăng ký danh sách các tool khả dụng cho ReAct Agent
-def get_weather(location: str) -> str:
-    """
-    Tra cứu thời tiết hiện tại của một thành phố.
-    
-    Args:
-        location (str): Tên thành phố (VD: 'Hà Nội', 'TP.HCM').
-        
-    Returns:
-        str: Thông tin thời tiết thực tế.
-    """
-    loc = location.strip().lower()
-    if "hà nội" in loc or "hanoi" in loc:
-        return "Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ, độ ẩm 65%."
-    elif "tp.hcm" in loc or "hồ chí minh" in loc or "hcm" in loc or "saigon" in loc:
-        return "Thời tiết TP.HCM hôm nay 32°C, có mưa rào rải rác vào chiều tối."
-    elif "đà nẵng" in loc or "da nang" in loc:
-        return "Thời tiết Đà Nẵng hôm nay 30°C, mây thay đổi, gió nhẹ."
-    else:
-        return f"Thời tiết tại {location} hôm nay 27°C, mây rải rác, nhiệt độ dễ chịu."
-
-
-def search_flights(origin: str, destination: str) -> str:
-    """
-    Tra cứu chuyến bay giữa 2 địa điểm.
-    
-    Args:
-        origin (str): Nơi đi (VD: 'TP.HCM').
-        destination (str): Nơi đến (VD: 'Hà Nội').
-        
-    Returns:
-        str: Danh sách chuyến bay tìm thấy.
-    """
-    return (
-        f"🛫 THÔNG TIN CHUYẾN BAY từ {origin} đi {destination}:\n"
-        f"1. Vietnam Airlines VN123 (08:00 - 10:00) - Giá: 1.500.000 VNĐ\n"
-        f"2. Vietjet Air VJ456 (14:30 - 16:30) - Giá: 1.200.000 VNĐ"
-    )
-
-
-AVAILABLE_TOOLS = {
-    "search_gifts": search_gifts,
-    "get_weather": get_weather,
-    "search_flights": search_flights,
-}
+AVAILABLE_TOOLS = {"search_gifts": search_gifts}
