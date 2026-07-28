@@ -277,7 +277,4 @@ AVAILABLE_TOOLS = {
     "search_gifts": search_gifts,
     "get_weather": get_weather,
     "search_flights": search_flights,
-    "analyze_personality": analyze_personality,
-    "check_gift_stock_and_stores": check_gift_stock_and_stores,
-    "generate_greeting_card": generate_greeting_card,
 }

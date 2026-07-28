@@ -17,12 +17,25 @@ from prompts import (  # noqa: E402
     ANALYZE_GIFT_REQUEST_TOOL,
     FINAL_RESPONSE_PROMPT,
     FINAL_RESPONSE_TOOL,
+    CHATBOT_BASELINE_PROMPT,
+    REACT_SYSTEM_PROMPT,
+    MAX_ITERATIONS,
 )
-from providers import OpenAIProvider  # noqa: E402
-from tools import search_gifts  # noqa: E402
+from providers import OpenAIProvider, get_llm_provider  # noqa: E402
+from tools import search_gifts, get_weather, search_flights  # noqa: E402
 from tracing import TraceLogger  # noqa: E402
 
 load_dotenv()
+
+
+def load_test_cases():
+    """Đọc bộ test cases từ config/test_cases.json của Role 1"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(base_dir, "config", "test_cases.json")
+    if not os.path.exists(config_path):
+        config_path = "test_cases.json"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 class GiftRecommendationAgent:
