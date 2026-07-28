@@ -50,14 +50,24 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI Provider (GPT-4o, GPT-3.5-turbo, etc.)"""
     def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.model_name = model or os.getenv("LLM_MODEL") or "gpt-4o-mini"
+        self.model_name = model or os.getenv("LLM_MODEL") or "gpt-4o"
+        self.base_url = os.getenv("OPENAI_BASE_URL") or None
+
+    def _get_client(self):
+        if not self.api_key or self.api_key == "your_openai_api_key_here":
+            raise RuntimeError("Chưa cấu hình OPENAI_API_KEY trong file .env")
+        import openai
+
+        kwargs = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        return openai.OpenAI(**kwargs)
         
     def generate(self, prompt: str, system_prompt: str = "") -> str:
         if not self.api_key or self.api_key == "your_openai_api_key_here":
             return "[OpenAI Error]: Chưa cấu hình OPENAI_API_KEY trong file .env!"
         try:
-            import openai
-            client = openai.OpenAI(api_key=self.api_key)
+            client = self._get_client()
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
@@ -70,6 +80,38 @@ class OpenAIProvider(BaseLLMProvider):
             return response.choices[0].message.content
         except Exception as e:
             return f"[OpenAI Exception]: {str(e)}"
+
+    def call_function(
+        self,
+        user_content: str,
+        system_prompt: str,
+        tool: dict,
+    ) -> dict:
+        """Ép model gọi đúng một function và trả về arguments đã parse."""
+
+        client = self._get_client()
+        function_name = tool["function"]["name"]
+        response = client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            tools=[tool],
+            tool_choice={
+                "type": "function",
+                "function": {"name": function_name},
+            },
+            temperature=0,
+        )
+        calls = response.choices[0].message.tool_calls or []
+        if not calls:
+            raise RuntimeError(f"Model không gọi function {function_name}")
+        if calls[0].function.name != function_name:
+            raise RuntimeError(
+                f"Model gọi sai function: {calls[0].function.name}"
+            )
+        return json.loads(calls[0].function.arguments)
 
 
 class AnthropicProvider(BaseLLMProvider):
