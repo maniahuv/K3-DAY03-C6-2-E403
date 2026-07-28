@@ -94,9 +94,9 @@ flowchart LR
 | **Observability**    | Ghi log trace để debug và làm báo cáo so sánh                 | `docs/trace_eval.md` (Role 5)      |
 
 :::checkpoint{title="Hoàn thành khi"}
-[ ] Terminal hiển thị `(.venv)`, gõ `python src/app.py` chạy thành công không báo lỗi.
-[ ] Bạn giải thích được vai trò Provider, Agent, Tool, Observation và Telemetry.
-[ ] Cả nhóm đã thống nhất phân vai 5-6 thành viên theo file `docs/PHAN_CONG_CONG_VIEC.md`.
+[x] Terminal hiển thị `(.venv)`, gõ `python src/app.py` chạy thành công không báo lỗi.
+[x] Bạn giải thích được vai trò Provider, Agent, Tool, Observation và Telemetry.
+[x] Cả nhóm đã thống nhất phân vai 5-6 thành viên theo file `docs/PHAN_CONG_CONG_VIEC.md`.
 :::
 
 :::caution{title="Troubleshooting — Vấn đề thường gặp"}
@@ -156,8 +156,8 @@ Câu hỏi của bài Lab: Khi nào chi phí orchestration của Agent đáng gi
 :::
 
 :::checkpoint{title="Hoàn thành khi"}
-[ ] Chatbot dùng đúng 1 LLM call, số lần gọi tool = 0.
-[ ] Raw answer đã được Role 5 lưu vào `docs/trace_eval.md` và phân loại output từng case.
+[x] Chatbot dùng đúng 1 LLM call, số lần gọi tool = 0.
+[x] Raw answer đã được Role 5 lưu vào `docs/trace_eval.md` và phân loại output từng case.
 :::
 
 :::caution{title="Troubleshooting — Vấn đề thường gặp"}
@@ -207,9 +207,9 @@ def get_weather(location: str) -> str:
 ```
 
 :::checkpoint{title="Hoàn thành khi"}
-[ ] Các tool trong `src/tools.py` chạy thử độc lập pass 100%, không crash khi nhập sai tham số.
-[ ] Mỗi tool có docstring mô tả input/output/error contract rõ ràng.
-[ ] Đã đăng ký danh sách tool vào dictionary `AVAILABLE_TOOLS`.
+[x] Các tool trong `src/tools.py` chạy thử độc lập pass 100%, không crash khi nhập sai tham số.
+[x] Mỗi tool có docstring mô tả input/output/error contract rõ ràng.
+[x] Đã đăng ký danh sách tool vào dictionary `AVAILABLE_TOOLS`.
 :::
 
 :::caution{title="Troubleshooting — Vấn đề thường gặp"}
@@ -272,10 +272,10 @@ stateDiagram-v2
 3. **Role 5**: Chạy `python src/app.py` và dán chuỗi log trace vào `docs/trace_eval.md`.
 
 :::checkpoint{title="Hoàn thành khi"}
-[ ] Agent chạy qua đúng chuỗi `Thought -> Action -> Observation`.
-[ ] Observation của bước trước xuất hiện trong prompt suy luận của bước sau.
-[ ] Phanh Guardrail `MAX_ITERATIONS` hoạt động ngắt lặp an toàn khi gặp câu bẫy.
-[ ] Đã lưu log trace vào `docs/trace_eval.md`.
+[x] Agent chạy qua đúng chuỗi `Thought -> Action -> Observation`.
+[x] Observation của bước trước xuất hiện trong prompt suy luận của bước sau.
+[x] Phanh Guardrail `MAX_ITERATIONS` hoạt động ngắt lặp an toàn khi gặp câu bẫy.
+[x] Đã lưu log trace vào `docs/trace_eval.md`.
 :::
 
 :::caution{title="Troubleshooting — Vấn đề thường gặp"}
@@ -311,8 +311,8 @@ Phát hiện một failed trace (lỗi lặp vô hạn, gọi sai tên tool, nh�
 3. **Role 5**: Ghi lại so sánh Before/After vào `docs/trace_eval.md`.
 
 :::checkpoint{title="Hoàn thành khi"}
-[ ] Có ít nhất 1 Failed Trace được phân tích nguyên nhân gốc trong `docs/trace_eval.md`.
-[ ] Agent V2 không bị crash khi gặp câu bẫy, trả về câu thông báo lịch sự khi chạm giới hạn.
+[x] Có ít nhất 1 Failed Trace được phân tích nguyên nhân gốc trong `docs/trace_eval.md`.
+[x] Agent V2 không bị crash khi gặp câu bẫy, trả về câu thông báo lịch sự khi chạm giới hạn.
 :::
 
 ---
